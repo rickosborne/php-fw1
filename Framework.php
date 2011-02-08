@@ -47,7 +47,11 @@ class Framework1 {
 	protected $cgiPathInfo;
 	protected $appRoot;
 	
-	public function __construct($settings) {
+	/**
+	 * Object constructor, like init() in CF, but always called implicitly.
+	 * @param array $settings Key/Values here will be used to overwrite defaults, like you would with CF's variables.framework 
+	 */
+	public function __construct(array $settings) {
 		$this->cgiScriptName = self::arrayParam($_SERVER, 'SCRIPT_NAME');
 		$this->cgiPathInfo = self::arrayParam($_SERVER, 'PATH_INFO');
 		$this->cgiScriptFileName = self::arrayParam($_SERVER, 'SCRIPT_FILENAME');
@@ -67,6 +71,11 @@ class Framework1 {
 		}
 	} // ctor
 	
+	/**
+	 * Cheap hack to allow you to access a few properties by name, like so: $fw->appRoot
+	 * @param string $property The name of the property to fetch.
+	 * @return mixed The value of the property (mostly strings)
+	 */
 	public function __get($property) {
 		if ($property === 'appRoot')
 			return $this->appRoot;
@@ -79,10 +88,25 @@ class Framework1 {
 		return NULL;
 	} // get
 	
-	protected static function arrayParam(&$arr, $key, $def = '') {
+	/**
+	 * Helper method, like cfparam, to get the values of an array or defaults.
+	 * @param array $arr Haystack array
+	 * @param string $key Needle name
+	 * @param mixed $def Default value (empty string)
+	 * @return mixed The value of the key in the array, or the given default
+	 */
+	protected static function arrayParam(array &$arr, $key, $def = '') {
 		return array_key_exists($key, $arr) ? $arr[$key] : $def;
 	} // arrayParam
 	
+	/**
+	 * Make URLs the smart way instead of by hand.  Has some magic: if you start action with './' it knows to just append whatever you say to the base path.
+	 * @param string $action The section.item form of the action, such as main.something
+	 * @param string $path Base path, defaults to the base of the app
+	 * @param string $queryString Additional query string parameters to append
+	 * @param string $literal Force the action to use dots and not turn them into slashes.
+	 * @return string The URL, suitable for printing in links
+	 */
 	public function buildUrl($action, $path = NULL, $queryString = '', $literal = FALSE) {
 		if (is_null($path)) {
 			$path = $this->framework->baseUrl;
@@ -188,6 +212,9 @@ class Framework1 {
 		return $basePath;
 	} // buildUrl
 	
+	/**
+	 * Internal method to figure out which views and layouts are available and should be processed.
+	 */
 	protected function buildViewAndLayoutQueue() {
 		$siteWideLayoutBase = $this->request->base;
 		$section = $this->request->section;
@@ -225,6 +252,11 @@ class Framework1 {
 		}
 	} // buildViewAndLayoutQueue
 	
+	/**
+	 * Check to see if the given file exists, storing the result in a cache to make later checks faster.
+	 * @param string $filePath Path to the file.
+	 * @return bool TRUE if the file exists
+	 */
 	protected function cachedFileExists($filePath) {
 		if (!$this->framework->cacheFileExists) {
 			return file_exists($filePath);
@@ -237,6 +269,11 @@ class Framework1 {
 		return $exists[$filePath];
 	} // cachedFileExists
 	
+	/**
+	 * Add the given controller to the queue
+	 * @param string $action The section.item formatted controller path.
+	 * @throws \Exception
+	 */
 	public function controller($action) {
 		$section = self::getSection($action);
 		$item    = self::getItem($action);
@@ -256,10 +293,22 @@ class Framework1 {
 		}
 	} // controller
 	
+	/**
+	 * Override this method to return the file path for the given info and type. 
+	 * @param string $pathInfo The section.item form of the path.
+	 * @param string $type Values 'view' or 'layout'.
+	 * @param string $fullPath Full path to the file, before alteration.
+	 * @return string New path to the view or layout file to use.
+	 */
 	public function customizeViewOrLayoutPath($pathInfo, $type, $fullPath) {
 		return $fullPath;
 	} // customizeViewOrLayoutPath
 	
+	/**
+	 * Internal method to actually perform the controller method call.
+	 * @param object $obj Controller object upon which to call the method.
+	 * @param string $method Name of the method to call
+	 */
 	protected function doController($obj, $method) {
 		$reflect = new \ReflectionClass(get_class($obj));
 		if($reflect->hasMethod($method) && $reflect->getMethod($method)->isPublic()) {
@@ -271,7 +320,16 @@ class Framework1 {
 		}
 	} // doController
 	
-	protected function doService($obj, $method, $args, $enforceExistence) {
+	/**
+	 * Internal method to actually perform the service method call.  Now with argumentCollection magic!
+	 * @param object $obj Service object upon which to call the method.
+	 * @param string $method Name of the method to call
+	 * @param array $args Arguments to pass to the method
+	 * @param bool $enforceExistence Throw an exception if the method does not exist
+	 * @throws \Exception
+	 * @return mixed The value returned by the service call
+	 */
+	protected function doService($obj, $method, array $args, $enforceExistence) {
 		$reflect = new \ReflectionClass(get_class($obj));
 		if($reflect->hasMethod($method) && ($serv = $reflect->getMethod($method)) && $serv->isPublic()) {
 		// if (is_callable(array($obj, $method))) {
@@ -516,7 +574,11 @@ DUMPCSSJS;
 		}
 	} // dump
 	
-	protected function failure($ex) {
+	/**
+	 * Internal handler for catastrophic errors
+	 * @param Exception $ex
+	 */
+	protected function failure(\Exception $ex) {
 		echo "<h1>Error</h1>";
 		if ($this->request->exists('failedAction')) {
 			$fa = $this->request->failedAction;
@@ -526,6 +588,12 @@ DUMPCSSJS;
 		// echo $this->dump($ex);
 	} // failure
 	
+	/**
+	 * Fetch an object from the cache, or instantiate and cache it if it does not exist.
+	 * @param string $type One of 'controller' or 'service'
+	 * @param string $section Name of the object to fetch
+	 * @return object Object, ready to use
+	 */
 	protected function getCachedObject($type, $section) {
 		$types = $type . 's';
 		$classKey = $section;
@@ -553,14 +621,28 @@ DUMPCSSJS;
 		return NULL;
 	} // getCachedObject
 	
+	/**
+	 * Convenience method to fetch a controller by name.
+	 * @param string $section Name of the controller to fetch
+	 * @return object Controller object
+	 */
 	protected function getController($section) {
 		return $this->getCachedObject('controller', $section); 
 	} // getController
 	
+	/**
+	 * Extract the item part of a section.item action.
+	 * @param string $action Action in section.item format.
+	 * @return string Item name.
+	 */
 	protected function getItem($action) {
 		return array_pop(explode('.', $this->getSectionAndItem($action), 2));
 	} // getItem
 	
+	/**
+	 * Internal magic for form preservation
+	 * @return int Number for preserved form
+	 */
 	protected function getNextPreserveKeyAndPurgeOld() {
 		$oldKeyToPurge = '';
 		session_start();
@@ -582,14 +664,29 @@ DUMPCSSJS;
 		return $nextPreserveKey;
 	} // getNextPreserveKeyAndPurgeOld
 	
+	/**
+	 * Abstraction magic for form preservation
+	 * @param string $preserveKey Number of preserved form
+	 * @return string Token to use for preserved form data.
+	 */
 	protected function getPreserveKeySessionKey($preserveKey) {
 		return "__fw" . $preserveKey;
 	} // getPreserveKeySessionKey
 	
+	/**
+	 * Extract the section part of a section.item action
+	 * @param string $action Action in section.item format.
+	 * @return string Section name
+	 */
 	protected function getSection($action) {
 		return array_shift(explode('.', $this->getSectionAndItem($action), 2));
 	} // getSection
 	
+	/**
+	 * Expad, contract, or extract a section.item token from the given action
+	 * @param string $action
+	 * @return string Action in section.item format
+	 */
 	public function getSectionAndItem($action = '') {
 		if (strlen($action) === 0) {
 			return $this->framework->home;
@@ -603,14 +700,31 @@ DUMPCSSJS;
 		return $parts[0] . '.' . $parts[1];
 	} // getSectionAndItem
 	
+	/**
+	 * Convenience function to get a service by name
+	 * @param string $section Name of the service
+	 * @return object Service object
+	 */
 	protected function getService($section) {
 		return $this->getCachedObject('service', $section);
 	} // getService
 	
+	/**
+	 * Override this function to use a different request context key name for service results.
+	 * @param string $action Service action in section.item format
+	 * @return string Request context key to use to store service results
+	 */
 	public function getServiceKey($action) {
 		return 'data';
 	} // getServiceKey
 
+	/**
+	 * Internal implementation to actually include the layout content.
+	 * @param string $layoutPath File path to the layout
+	 * @param string $body Content to include as the body
+	 * @throws \Exception
+	 * @return string Content generated by the layout
+	 */
 	protected function internalLayout($layoutPath, $body) {
 		$rc = $this->context;
 		$fw = $this;
@@ -622,6 +736,13 @@ DUMPCSSJS;
 		return ob_get_clean();
 	} // internalLayout
 	
+	/**
+	 * Internal implementation to actually include the view content.
+	 * @param string $viewPath File path to the view
+	 * @param string $body Content to include as the body
+	 * @throws \Exception
+	 * @return string Content generated by the view
+	 */
 	protected function internalView($viewPath, $args = array()) {
 		$rc = $this->context;
 		$fw = $this;
@@ -633,18 +754,36 @@ DUMPCSSJS;
 		return ob_get_clean();
 	} // internalView
 
+	/**
+	 * Return the content generated by the given layout
+	 * @param string $path Layout action in section.item format
+	 * @param string $body Content to include as the body
+	 * @return string Content generated by the layout
+	 */
 	public function layout($path, $body) {
 		return $this->internalLayout($this->parseViewOrLayoutPath($path, 'layout'), $body);
 	} // layout
 	
-	public function onError($ex) {
+	/**
+	 * Override this method to perform your own error handling
+	 * @param Exception $ex
+	 */
+	public function onError(\Exception $ex) {
 		$this->failure($ex);
 	} // onError
 	
+	/**
+	 * Override this method to handle missing views on your own
+	 * @param object $rc Request context
+	 */
 	public function onMissingView($rc) {
 		$this->viewNotFound();
 	} // onMissingView
 	
+	/**
+	 * Handle the request.  Do not override this method!
+	 * @param string $targetPath Path information for the request
+	 */
 	public function onRequest($targetPath) {
 		$once = array();
 		$this->request->controllerExecutionStarted = TRUE;
@@ -694,6 +833,10 @@ DUMPCSSJS;
 		echo $out;
 	} // onRequest
 	
+	/**
+	 * Framework setup tasks for the request that is about to happen.  Do not override this method!
+	 * @param string $targetPath Path information for the request
+	 */
 	public function onRequestStart($targetPath) {
 		$pathInfo = $this->cgiPathInfo;
 		$sesIx = 0;
@@ -735,6 +878,12 @@ DUMPCSSJS;
 		$this->setupRequestWrapper(TRUE);
 	} // onRequestStart
 	
+	/**
+	 * Internal shim to hand off view/layout logic
+	 * @param string $path Action in section.item format.
+	 * @param string $type Either 'view' or 'layout'
+	 * @return string Path to the view/layout to use
+	 */
 	protected function parseViewOrLayoutPath($path, $type) {
 		$pathInfo = array(
 			'path' => $path,
@@ -743,6 +892,14 @@ DUMPCSSJS;
 		return $this->customizeViewOrLayoutPath($pathInfo, $type, "${pathInfo['base']}${type}s/${pathInfo['path']}.php");
 	} // parseViewOrLayoutPath
 	
+	/**
+	 * Redirect the user by sending the appropriate Location header
+	 * @param string $action Target action in section.item format
+	 * @param string $preserve
+	 * @param string $append Comma-delimited list of key names to append from the request context (or 'all')
+	 * @param string $path 
+	 * @param string $queryString Additional query string parameters to append
+	 */
 	public function redirect($action, $preserve = 'none', $append = 'none', $path = NULL, $queryString = '') {
 		$baseQueryString = array();
 		$key = '';
@@ -787,7 +944,15 @@ DUMPCSSJS;
 		exit;
 	} // redirect
 	
-	public function service($action, $key, $args = array(), $enforceExistence = TRUE) {
+	/**
+	 * Add the given service to the queue to be handled later
+	 * @param string $action Name of the service
+	 * @param string $key Name of the key in the request context under which the result will be stored
+	 * @param array $args Arguments to pass to the service. (Will try its best to emulate argumentCollection if empty.)
+	 * @param bool $enforceExistence Throw an error of the service method does not exist
+	 * @throws \Exception
+	 */
+	public function service($action, $key, array $args = array(), $enforceExistence = TRUE) {
 		$section = $this->getSection($action);
 		$item = $this->getItem($action);
 		if ($this->request->exists('serviceExecutionComplete')) {
@@ -809,8 +974,14 @@ DUMPCSSJS;
 		}
 	} // service
 	
+	/**
+	 * Override this function with a hook to be called as the framework is loading
+	 */
 	public function setupApplication() {}
 	
+	/**
+	 * Create the caches and other variables needed by the framework
+	 */
 	protected function setupApplicationWrapper() {
 		$this->cache->lastReload = time();
 		$this->cache->fileExists = array();
@@ -819,7 +990,11 @@ DUMPCSSJS;
 		$this->setupApplication();
 	} // setupApplicationWrapper
 	
-	protected function setupFrameworkDefaults($settings) {
+	/**
+	 * Initialize the framework with the default settings, overriding them with any user-specified settings as required
+	 * @param array $settings
+	 */
+	protected function setupFrameworkDefaults(array $settings) {
 		$defaults = array(
 			'action'         => 'action',
 			'defaultSection' => 'main',
@@ -839,12 +1014,23 @@ DUMPCSSJS;
 		$this->framework->param('home', $this->framework->defaultSection . '.' . $this->framework->defaultItem);
 	} // setupFrameworkDefaults
 	
+	/**
+	 * Override this method to have a hook into when the framework is just about to process the request
+	 */
 	public function setupRequest() {}
 	
+	/**
+	 * Set up request-specific framework variables
+	 * (Yes this is kindof silly in PHP.)
+	 */
 	protected function setupRequestDefaults() {
 		$this->request->base = $this->framework->base;
 	} // setupRequestDefaults
 	
+	/**
+	 * Populate the variables needed for this specific request
+	 * @param bool $runSetup
+	 */
 	protected function setupRequestWrapper($runSetup = FALSE) {
 		$this->request->section  = $this->getSection($this->request->action);
 		$this->request->item     = $this->getItem($this->request->action);
@@ -858,10 +1044,20 @@ DUMPCSSJS;
 		}
 	} // setupRequestWrapper
 	
+	/**
+	 * Force the specified view instead of the default view 
+	 * @param string $action View action in setion.item format. 
+	 */
 	public function setView($action) {
 		$this->request->overrideViewAction = $this->validateAction($action);
 	} // setView
 	
+	/**
+	 * Ensure the user isn't trying to get us to include files outside of our scope.
+	 * @param string $action Action in section.item format.
+	 * @throws \Exception
+	 * @return string Clean action.
+	 */
 	protected static function validateAction($action) {
 		if ((strpos($action, '/') !== FALSE) || (strpos($action, '\\') !== FALSE)) {
 			throw new \Exception('Actions cannot contain slashes');
@@ -869,10 +1065,20 @@ DUMPCSSJS;
 		return $action;
 	} // validateAction
 	
+	/**
+	 * Process the given view
+	 * @param string $path View action in section.item format
+	 * @param string $args Arguments to pass to the view
+	 * @return string Content generated by the view
+	 */
 	public function view($path, $args = NULL) {
 		return $this->internalView($this->parseViewOrLayoutPath($path, 'view'), $args);
 	} // view
 	
+	/**
+	 * Stub handler for panic situations when we can't find the right view to use
+	 * @throws \Exception
+	 */
 	protected function viewNotFound() {
 		throw new \Exception("Unable to find a view for '" . $this->request->action . "' action.");
 	} // viewNotFound
