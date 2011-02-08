@@ -13,16 +13,13 @@ NOTES
 
 There are, of course a few differences.
 
- * PHP doesn't have named arguments, which means that Service call
-   magic, well, isn't magical.  Your service calls will need to include
-   the service arguments in the correct order if you want them to work.
-   (Or just use an associative array.)
-   
  * Subsystem and bean factory code have been removed.  (Not because
    they wouldn't work, but because I didn't need them.)
    
  * Views don't have magically-local scope access to functions like
    buildUrl().  You'll need to use $fw->buildUrl(), etc, instead.
+
+ * There's a helper function dump() to make you feel right at home.
    
  * Since there's no Application scope, there's no real caching.
  
@@ -31,7 +28,11 @@ There are, of course a few differences.
  * The whole FW1Obj thing is a total hack to work around a PHP 5.x
    bug that passed arguments to __call methods by value instead of
    by reference.  Yes, it sucks.  I know.  I don't like it, and it
-   will hopefully get refactored later. 
+   will hopefully get refactored later.
+
+FIXES
+
+ * As of b17f9b497a971ff3c60f, service calls are magical, just like CF.
  
 LICENSE
 
