@@ -290,16 +290,23 @@ class Framework1 {
 	 * @param $depth  Current depth (default 0)
 	 */
 	public function dump(&$var, $limit = 0, $label = '', $depth = 0) {
+		if (!is_int($depth))
+			$depth = 0;
+		if (!is_int($limit))
+			$limit = 0;
 		if (($limit > 0) && ($depth >= $limit))
 			return;
 		static $seen = array();
 		$he = function ($s) { return htmlentities($s); };
+		$tabs = "\n" . str_repeat("\t", $depth);
+		$depth++;
+		$printCount = 0;
 		$self = $this;
-		$echoFunction = function($var, $tabs, $label = '') use ($self) {
+		$echoFunction = function($var, $tabs, $limit = 0, $label = '', $depth = 0) use ($self) {
 			if (!is_subclass_of($var, 'ReflectionFunctionAbstract')) {
 				$var = new \ReflectionFunction($var);
 			}
-			echo "$tabs<table class=\"dump function\">$tabs<thead><tr><th>" . ($label != '' ? $label . ' - ' : '') . (is_callable(array($var, 'getModifiers')) ? htmlentities(implode(' ', \Reflection::getModifierNames($var->getModifiers()))) : '') . " function " . htmlentities($var->getName()) . "</th></tr></thead>$tabs<tbody>";
+			echo "$tabs<table class=\"dump function depth${depth}\">$tabs<thead><tr><th>" . ($label != '' ? $label . ' - ' : '') . (is_callable(array($var, 'getModifiers')) ? htmlentities(implode(' ', \Reflection::getModifierNames($var->getModifiers()))) : '') . " function " . htmlentities($var->getName()) . "</th></tr></thead>$tabs<tbody>";
 			echo "$tabs<tr><td class=\"value\">$tabs<table class=\"dump layout\">$tabs<tr><th>Parameters:</th><td>";
 			$params = $var->getParameters();
 			if (count($params) > 0) {
@@ -307,7 +314,7 @@ class Framework1 {
 				foreach ($params as $param) {
 					echo "$tabs<tr><td>" . htmlentities($param->getName()) . "</td><td>" . ($param->isArray() ? "Array " : "") . ($param->isPassedByReference() ? "Reference" : "") . "</td><td>" . ($param->isOptional() ? "Optional" : "Required") . "</td><td>";
 					if ($param->isOptional()) {
-						$self->dump($param->getDefaultValue());
+						$self->dump($param->getDefaultValue(), $limit, $label, $depth);
 					}
 					echo "</td></tr>";
 				}
@@ -322,34 +329,81 @@ class Framework1 {
 			echo "</table>$tabs</td></tr>";
 			echo "$tabs</tbody>$tabs</table>";
 		};
-		$tabs = "\n" . str_repeat("\t", $depth);
-		$depth++;
-		$printCount = 0;
 		if (!array_key_exists('fw1dumpstarted', $_REQUEST)) {
 			$_REQUEST['fw1dumpstarted'] = TRUE;
-			echo<<<DUMPCSS
+			echo<<<DUMPCSSJS
 <style type="text/css">/* fw/1 dump */
 table.dump { color: black; background-color: white; font-size: xx-small; font-family: verdana,arial,helvetica,sans-serif; border-spacing: 0; border-collapse: collapse; }
 table.dump th { text-indent: -2em; padding: 0.25em 0.25em 0.25em 2.25em; color: #fff; }
 table.dump td { padding: 0.25em; }
+table.dump .key { cursor: pointer; }
+table.dump td.shh { background-color: #ddd; }
+table.dump td.shh div { display: none; }
+table.dump td.shh:before { content: "..."; }
 table.dump th, table.dump td { border-width: 2px; border-style: solid; border-spacing: 0; vertical-align: top; text-align: left; }
-table.dump.object, table.dump.object td, table.dump.object th { border-color: #f00; }
-table.dump.object th { background-color: #f44; }
-table.dump.object .key { background-color: #fcc; }
-table.dump.array, table.dump.array td, table.dump.array th { border-color: #060; }
-table.dump.array th { background-color: #090; }
-table.dump.array .key { background-color: #cfc; }
-table.dump.struct, table.dump.struct td, table.dump.struct th { border-color: #00c; }
-table.dump.struct th { background-color: #44c; }
-table.dump.struct .key { background-color: #cdf; }
-table.dump.function, table.dump.function td, table.dump.function th { border-color: #a40; }
-table.dump.function th { background-color: #c60; }
-table.dump.layout, table.dump.layout td, table.dump.layout th { border-color: #fff; }
-table.dump.layout th { font-style: italic; background-color: #fff; color: #000; font-weight: normal; }
-table.dump.param, table.dump.param td, table.dump.param th { border-color: #ddd; }
-table.dump.param th { background-color: #eee; color: black; font-weight: bold; }
+table.dump.object, table.dump.object > * > tr > td, table.dump.object > thead > tr > th { border-color: #f00; }
+table.dump.object > thead > tr > th { background-color: #f44; }
+table.dump.object > tbody > tr > .key { background-color: #fcc; }
+table.dump.array, table.dump.array > * > tr > td, table.dump.array > thead > tr > th { border-color: #060; }
+table.dump.array > thead > tr > th { background-color: #090; }
+table.dump.array > tbody > tr > .key { background-color: #cfc; }
+table.dump.struct, table.dump.struct > * > tr > td, table.dump.struct > thead > tr > th { border-color: #00c; }
+table.dump.struct > thead > tr > th { background-color: #44c; }
+table.dump.struct > tbody > tr > .key { background-color: #cdf; }
+table.dump.function, table.dump.function > * > tr > td, table.dump.function > thead > tr > th { border-color: #a40; }
+table.dump.function > thead > tr > th { background-color: #c60; }
+table.dump.layout, table.dump.layout > * > tr > td, table.dump.layout > thead > tr > th { border-color: #fff; }
+table.dump.layout > * > tr > th { font-style: italic; background-color: #fff; color: #000; font-weight: normal; border: none; }
+table.dump.param, table.dump.param > * > tr > td, table.dump.param > thead > tr > th { border-color: #ddd; }
+table.dump.param > thead > tr > th  { background-color: #eee; color: black; font-weight: bold; }
 </style>
-DUMPCSS;
+<script type="text/javascript" language="JavaScript">
+(function(w,d){
+	var addEvent = function(o,t,f) {
+		if (o.addEventListener) o.addEventListener(t,f,false);
+		else if (o.attachEvent) {
+			o['e' + t + f] = f;
+			o[t + f] = function() { o['e' + t + f](w.event); }
+			o.attachEvent('on' + t, o[t + f]);
+		}
+	}; // addEvent
+	var clickCell = function(e) {
+		var target = e.target || this;
+		var sib = target.nextSibling;
+		if (sib && sib.tagName && (sib.tagName.toLowerCase() === 'td')) {
+			if (/(^|\s)shh(\s|$)/.test(sib.className)) sib.className = sib.className.replace(/(^|\s)shh(\s|$)/, ' ');
+			else sib.className += ' shh';
+		}
+		if (e && e.stopPropagation) e.stopPropagation();
+		else w.event.cancelBubble = true;
+		return false;
+	}; // clickCell
+	var collapsifyDumps = function() {
+		setTimeout(function() {
+			var tables = document.getElementsByTagName('table');
+			for(var t = 0; t < tables.length; t++) {
+				var table = tables[t];
+				var dumpPattern = /(^|\s)dump(\s|$)/;
+				var depthPattern = /(^|\s)depth1(\s|$)/;
+				if (! (dumpPattern.test(table.className) && depthPattern.test(table.className) ))
+					continue;
+				var cells = table.getElementsByTagName('td');
+				var keyPattern = /(^|\s)key(\s|$)/;
+				var keyCount = 0;
+				for (var c = 0; c < cells.length; c++) {
+					var cell = cells[c];
+					if (! (keyPattern.test(cell.className)))
+						continue;
+					addEvent(cell, 'click', clickCell);
+				} // for k
+			} // for t
+		}, 250);
+	}; // collapsify dumps
+	if (d.addEventListener) d.addEventListener("DOMContentLoaded", collapsifyDumps, false);
+	else d.onreadystatechange = function() { if (d.readyState === 'interactive') collapsifyDumps(this); };
+})(window,document);
+</script>
+DUMPCSSJS;
 		}
 		if (is_array($var)) {
 			$label = $label === '' ? (($var === $_POST) ? '$_POST' : (($var === $_GET) ? '$_GET' : (($var === $_COOKIE) ? '$_COOKIE' : (($var === $_ENV) ? '$_ENV' : (($var === $_FILES) ? '$_FILES' : (($var === $_REQUEST) ? '$_REQUEST' : (($var === $_SERVER) ? '$_SERVER' : (isset($_SESSION) && ($var === $_SESSION) ? '$_SESSION' : '')))))))) : $label;      
@@ -359,13 +413,13 @@ DUMPCSS;
 			}
 			$aclass = (($c > 0) && array_key_exists(0, $var) && array_key_exists($c - 1, $var)) ? 'array' : 'struct';
 			$var['fw1recursionsentinel'] = true;
-			echo "$tabs<table class=\"dump ${aclass}\">$tabs<thead><tr><th colspan=\"2\">" . ($label != '' ? $label . ' - ' : '') . "array" . ($c > 0 ? "" : " [empty]") . "</th></tr></thead>$tabs<tbody>";
+			echo "$tabs<table class=\"dump ${aclass} depth${depth}\">$tabs<thead><tr><th colspan=\"2\">" . ($label != '' ? $label . ' - ' : '') . "array" . ($c > 0 ? "" : " [empty]") . "</th></tr></thead>$tabs<tbody>";
 			foreach ($var as $index => $aval) {
 				if ($index === 'fw1recursionsentinel')
 					continue;
-				echo "$tabs<tr><td class=\"key\">" . $he($index) . "</td><td class=\"value\">";
+				echo "$tabs<tr><td class=\"key\">" . $he($index) . "</td><td class=\"value\"><div>";
 				$this->dump($aval, $limit, '', $depth);
-				echo "</td></tr>";
+				echo "</div></td></tr>";
 				$printCount++;
 				if (($limit > 0) && ($printCount >= $limit) && ($aclass === 'array'))
 					break;
@@ -377,7 +431,7 @@ DUMPCSS;
 		} elseif (is_bool($var)) {
 			echo $var ? "TRUE" : "FALSE";
 		} elseif (is_callable($var) || (is_object($var) && is_subclass_of($var, 'ReflectionFunctionAbstract'))) {
-			$echoFunction($var, $tabs, $label);
+			$echoFunction($var, $tabs, $limit, $label, $depth);
 		} elseif (is_float($var)) {
 			echo "(float) " . htmlentities($var);
 		} elseif (is_int($var)) {
@@ -395,50 +449,50 @@ DUMPCSS;
 			}
 			$objHash = 'o' . md5($serial);
 			$refHash = 'r' . md5($ref);
-			echo "$tabs<table class=\"dump object\"" . (isset($seen[$refHash]) ? "" : "id=\"$refHash\"") . ">$tabs<thead>$tabs<tr><th colspan=\"2\">" . ($label != '' ? $label . ' - ' : '') . "object " . htmlentities($ref->getName()) . ($parent ? "<br/>extends " .$parent->getName() : "") . ($interfaces !== '' ? "<br/>implements " . $interfaces : "") . "</th></tr>$tabs<tbody>";
+			echo "$tabs<table class=\"dump object depth${depth}\"" . (isset($seen[$refHash]) ? "" : "id=\"$refHash\"") . ">$tabs<thead>$tabs<tr><th colspan=\"2\">" . ($label != '' ? $label . ' - ' : '') . "object " . htmlentities($ref->getName()) . ($parent ? "<br/>extends " .$parent->getName() : "") . ($interfaces !== '' ? "<br/>implements " . $interfaces : "") . "</th></tr>$tabs<tbody>";
 			if (isset($seen[$objHash])) {
 				echo "$tabs<tr><td colspan=\"2\"><a href=\"#$refHash\">[see above for details]</a></td></tr>";
 			} else {
 				$seen[$objHash] = TRUE;
 				$constants = $ref->getConstants();
 				if (count($constants) > 0) {
-					echo "$tabs<tr><td class=\"key\">CONSTANTS</td><td class=\"values\">$tabs<table class=\"dump object\">";
+					echo "$tabs<tr><td class=\"key\">CONSTANTS</td><td class=\"values\"><div>$tabs<table class=\"dump object\">";
 					foreach ($constants as $constant => $cval) {
-						echo "$tabs<tr><td class=\"key\">" . htmlentities($constant) . "</td><td class=\"value constant\">";
-						$this->dump($cval, $limit, '', $depth);
-						echo "</td></tr>";
+						echo "$tabs<tr><td class=\"key\">" . htmlentities($constant) . "</td><td class=\"value constant\"><div>";
+						$this->dump($cval, $limit, '', $depth + 1);
+						echo "</div></td></tr>";
 					}
-					echo "$tabs</table>$tabs</td></tr>";
+					echo "$tabs</table>$tabs</div></td></tr>";
 				}
 				$properties = $ref->getProperties();
 				if (count($properties) > 0) {
-					echo "$tabs<tr><td class=\"key\">PROPERTIES</td><td class=\"values\">$tabs<table class=\"dump object\">";
+					echo "$tabs<tr><td class=\"key\">PROPERTIES</td><td class=\"values\"><div>$tabs<table class=\"dump object\">";
 					foreach ($properties as $property) {
-						echo "$tabs<tr><td class=\"key\">" . htmlentities(implode(' ', \Reflection::getModifierNames($property->getModifiers()))) . " " . $he($property->getName()) . "</td><td class=\"value property\">";
+						echo "$tabs<tr><td class=\"key\">" . htmlentities(implode(' ', \Reflection::getModifierNames($property->getModifiers()))) . " " . $he($property->getName()) . "</td><td class=\"value property\"><div>";
 						$wasHidden = $property->isPrivate() || $property->isProtected();
 						$property->setAccessible(TRUE);
-						$this->dump($property->getValue($var), $limit, '', $depth);
+						$this->dump($property->getValue($var), $limit, '', $depth + 1);
 						if ($wasHidden) { $property->setAccessible(FALSE); }
-						echo "</td></tr>";
+						echo "</div></td></tr>";
 					}
-					echo "$tabs</table>$tabs</td></tr>";
+					echo "$tabs</table>$tabs</div></td></tr>";
 				}
 				$methods = $ref->getMethods();
 				if (count($methods) > 0) {
-					echo "$tabs<tr><td class=\"key\">METHODS</td><td class=\"values\">";
+					echo "$tabs<tr><td class=\"key\">METHODS</td><td class=\"values shh\"><div>";
 					if (isset($seen[$refHash])) {
 						echo "<a href=\"#$refHash\">[see above for details]</a>";
 					} else {
 						$seen[$refHash] = TRUE;
 						echo "$tabs<table class=\"dump object\">";
 						foreach ($methods as $method) {
-							echo "$tabs<tr><td class=\"key\">" . htmlentities($method->getName()) . "</td><td class=\"value function\">";
-							$echoFunction($method, $tabs, '');
-							echo "</td></tr>";
+							echo "$tabs<tr><td class=\"key\">" . htmlentities($method->getName()) . "</td><td class=\"value function\"><div>";
+							$echoFunction($method, $tabs, $limit, '', $depth + 1);
+							echo "</div></td></tr>";
 						}
 						echo "$tabs</table>";
 					}
-					echo "$tabs</td></tr>";
+					echo "$tabs</div></td></tr>";
 				}
 			}
 			echo "$tabs</tbody>$tabs</table>";
