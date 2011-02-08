@@ -273,9 +273,18 @@ class Framework1 {
 	
 	protected function doService($obj, $method, $args, $enforceExistence) {
 		$reflect = new \ReflectionClass(get_class($obj));
-		if($reflect->hasMethod($method) && $reflect->getMethod($method)->isPublic()) {
+		if($reflect->hasMethod($method) && ($serv = $reflect->getMethod($method)) && $serv->isPublic()) {
 		// if (is_callable(array($obj, $method))) {
 			// return $obj->{$method}($args);
+			// Wow, this seems like one helluva hack.  It can't be this easy, can it?
+			if (empty($args)) {
+				$args = array();
+				$params = $serv->getParameters();
+				foreach($params as $param) {
+					$paramName = $param->getName();
+					$args[] = $this->context->exists($paramName) ? $this->context->{$paramName} : NULL;
+				}	 
+			}
 			return call_user_func_array(array($obj, $method), $args);
 		} elseif ($enforceExistence) {
 			throw new \Exception("Service method '$method' does not exist in service '" . get_class($obj) . "'.");

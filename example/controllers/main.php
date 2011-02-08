@@ -17,9 +17,7 @@ class main {
 	
 	public function startReverse(&$rc) {
 		$rc->param('name', 'no name given');
-		// note that PHP does not have named function arguments
-		// your service() calls will need to include the args in the correct order
-		$this->fw->service('reverse', 'reverse', array($rc->name));
+		$this->fw->service('reverse', 'reverse');
 	}
 	
 	public function endTime(&$rc) {
