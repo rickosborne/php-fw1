@@ -9,7 +9,7 @@ namespace Org\Corfield;
  */
 class FW1Obj {
 	private $properties = array();
-
+	
 	public function __get($property) {
 		if ($this->exists($property)) {
 			return $this->properties[$property];
@@ -32,6 +32,9 @@ class FW1Obj {
 		if($this->exists($property)) {
 			unset($this->properties[$property]);
 		}
+	}
+	public function keyNames() {
+		return array_keys($this->properties);
 	}
 	
 }
@@ -473,7 +476,8 @@ table.dump.param > thead > tr > th  { background-color: #eee; color: black; font
 DUMPCSSJS;
 		}
 		if (is_array($var)) {
-			$label = $label === '' ? (($var === $_POST) ? '$_POST' : (($var === $_GET) ? '$_GET' : (($var === $_COOKIE) ? '$_COOKIE' : (($var === $_ENV) ? '$_ENV' : (($var === $_FILES) ? '$_FILES' : (($var === $_REQUEST) ? '$_REQUEST' : (($var === $_SERVER) ? '$_SERVER' : (isset($_SESSION) && ($var === $_SESSION) ? '$_SESSION' : '')))))))) : $label;      
+			// It turns out that identity (===) in PHP isn't actually identity.  It's more like "do you look similar enough to fool an untrained observer?".  Lame!
+			// $label = $label === '' ? (($var === $_POST) ? '$_POST' : (($var === $_GET) ? '$_GET' : (($var === $_COOKIE) ? '$_COOKIE' : (($var === $_ENV) ? '$_ENV' : (($var === $_FILES) ? '$_FILES' : (($var === $_REQUEST) ? '$_REQUEST' : (($var === $_SERVER) ? '$_SERVER' : (isset($_SESSION) && ($var === $_SESSION) ? '$_SESSION' : '')))))))) : $label;      
 			$c = count($var);
 			if(isset($var['fw1recursionsentinel'])) {
 				echo "(Recursion)";
@@ -509,12 +513,15 @@ DUMPCSSJS;
 			$ref = new \ReflectionObject($var);
 			$parent = $ref->getParentClass();
 			$interfaces = implode("<br/>implements ", $ref->getInterfaceNames());
+			/*
 			try {
 				$serial = serialize($var);
 			} catch (\Exception $e) {
 				$serial = 'hasclosure' . $ref->getName();
 			}
 			$objHash = 'o' . md5($serial);
+			*/
+			$objHash = spl_object_hash($var);
 			$refHash = 'r' . md5($ref);
 			echo "$tabs<table class=\"dump object depth${depth}\"" . (isset($seen[$refHash]) ? "" : "id=\"$refHash\"") . ">$tabs<thead>$tabs<tr><th colspan=\"2\">" . ($label != '' ? $label . ' - ' : '') . "object " . htmlentities($ref->getName()) . ($parent ? "<br/>extends " .$parent->getName() : "") . ($interfaces !== '' ? "<br/>implements " . $interfaces : "") . "</th></tr>$tabs<tbody>";
 			if (isset($seen[$objHash])) {
