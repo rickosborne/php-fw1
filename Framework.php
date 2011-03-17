@@ -383,7 +383,7 @@ class Framework1 {
 				echo "</td></tr>$tabs<tr><td colspan=\"2\">$tabs<table class=\"dump param\">$tabs<thead><tr><th>Name</th><th>Array/Ref</th><th>Required</th><th>Default</th></tr></thead>$tabs<tbody>";
 				foreach ($params as $param) {
 					echo "$tabs<tr><td>" . htmlentities($param->getName()) . "</td><td>" . ($param->isArray() ? "Array " : "") . ($param->isPassedByReference() ? "Reference" : "") . "</td><td>" . ($param->isOptional() ? "Optional" : "Required") . "</td><td>";
-					if ($param->isOptional()) {
+					if ($param->isOptional() && $param->isDefaultValueAvailable()) {
 						$self->dump($param->getDefaultValue(), $limit, $label, $depth);
 					}
 					echo "</td></tr>";
