@@ -182,7 +182,7 @@ class Framework1 {
 			if ($isHomeAction && ($extraArgs === '')) {
 				$basePath = $path; 
 			} elseif ($isDefaultItem && ($extraArgs === '')) {
-				$basePath  = $path . $initialDelim . array_shift(explode($cosmeticAction, '.', 2));
+				$basePath  = $path . $initialDelim . array_shift(explode('.', $cosmeticAction, 2));
 			} elseif ($literal === TRUE) {
 				$basePath  = $path . $initialDelim . $cosmeticAction;
 			} else {
@@ -193,7 +193,7 @@ class Framework1 {
 				$basePath = $path;
 				$curDelim = '?';
 			} else if ($isDefaultItem) {
-				$basePath = $path . $initialDelim . $this->framework->action . $equalDelim . array_shift(explode($cosmeticAction, '.', 2));
+				$basePath = $path . $initialDelim . $this->framework->action . $equalDelim . array_shift(explode('.', $cosmeticAction, 2));
 			} else {
 				$basePath = $path . $initialDelim . $this->framework->action . $equalDelim . $cosmeticAction;
 			}
