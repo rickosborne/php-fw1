@@ -182,7 +182,8 @@ class Framework1 {
 			if ($isHomeAction && ($extraArgs === '')) {
 				$basePath = $path; 
 			} elseif ($isDefaultItem && ($extraArgs === '')) {
-				$basePath  = $path . $initialDelim . array_shift(explode('.', $cosmeticAction, 2));
+				$cosmeticParts = explode('.', $cosmeticAction, 2);
+				$basePath  = $path . $initialDelim . array_shift($cosmeticParts);
 			} elseif ($literal === TRUE) {
 				$basePath  = $path . $initialDelim . $cosmeticAction;
 			} else {
@@ -483,7 +484,7 @@ DUMPCSSJS;
 				echo "(Recursion)";
 			}
 			$aclass = (($c > 0) && array_key_exists(0, $var) && array_key_exists($c - 1, $var)) ? 'array' : 'struct';
-			$var['fw1recursionsentinel'] = true;
+			$var['fw1recursionsentinel'] = TRUE;
 			echo "$tabs<table class=\"dump ${aclass} depth${depth}\">$tabs<thead><tr><th colspan=\"2\">" . ($label != '' ? $label . ' - ' : '') . "array" . ($c > 0 ? "" : " [empty]") . "</th></tr></thead>$tabs<tbody>";
 			foreach ($var as $index => $aval) {
 				if ($index === 'fw1recursionsentinel')
@@ -545,7 +546,8 @@ DUMPCSSJS;
 						echo "$tabs<tr><td class=\"key\">" . htmlentities(implode(' ', \Reflection::getModifierNames($property->getModifiers()))) . " " . $he($property->getName()) . "</td><td class=\"value property\"><div>";
 						$wasHidden = $property->isPrivate() || $property->isProtected();
 						$property->setAccessible(TRUE);
-						$this->dump($property->getValue($var), $limit, '', $depth + 1);
+						$propertyValue = $property->getValue($var);
+						$this->dump($propertyValue, $limit, '', $depth + 1);
 						if ($wasHidden) { $property->setAccessible(FALSE); }
 						echo "</div></td></tr>";
 					}
@@ -854,6 +856,7 @@ DUMPCSSJS;
 		$sesN = 0;
 		$this->setupRequestDefaults();
 		$this->setupApplicationWrapper();
+		$this->restoreFlashContext();
 		if ((strlen($pathInfo) > strlen($this->cgiScriptName)) && (substr($pathInfo, 0, strlen($this->cgiScriptName)) === $this->cgiScriptName)) {
 			// path contains the script
 			$pathInfo = substr($pathInfo, strlen($this->cgiScriptName));
@@ -913,20 +916,18 @@ DUMPCSSJS;
 	 */
 	public function redirect($action, $preserve = 'none', $append = 'none', $path = NULL, $queryString = '') {
 		$baseQueryString = array();
-		$key = '';
-		$val = '';
-		$keys = '';
-		$preserveKey = '';
-		$targetUrl = '';
+		if ($preserve != 'none') {
+			$preserveKey = $this->saveFlashContext($preserve);
+		}
 		if ($append !== 'none') {
 			if ($append === 'all') {
-				$keys = array_keys($this->context);
+				$keys = $this->context->keyNames();
 			} else {
 				$keys = explode(',', $append);
 			}
 			foreach ($keys as $key) {
-				if (array_key_exists($key, $this->context) && is_scalar($this->context[$key])) {
-					$baseQueryString[] = $key . '=' . urlencode($this->context[$key]);
+				if ($this->context->exists($key) && is_scalar($this->context->$key)) {
+					$baseQueryString[] = $key . '=' . urlencode($this->context->$key);
 				}
 			}
 		}
@@ -943,7 +944,7 @@ DUMPCSSJS;
 			$baseQueryString = $queryString;
 		}
 		$targetUrl = $this->buildUrl($action, $path, $baseQueryString);
-		if ($preserveKey !== '') {
+		if (!empty($preserveKey)) {
 			if (strpos($targetUrl, '?') !== FALSE) {
 				$preserveKey = '&' . $this->framework->preserveKeyURLKey . '=' . $preserveKey;
 			} else {
@@ -954,7 +955,65 @@ DUMPCSSJS;
 		header('Location: ' . $targetUrl);
 		exit;
 	} // redirect
-	
+
+	/**
+	 * Load saved context data from the Session
+	 * @throws \Exception
+	 */
+	public function restoreFlashContext() {
+		if ($this->framework->maxNumContextsPreserved > 1) {
+			if (!array_key_exists($this->framework->preserveKeyURLKey, $_GET)) {
+				return;
+			}
+			$preserveKey = $_GET[$this->framework->preserveKeyURLKey];
+			$preserveKeySessionKey = $this->getPreserveKeySessionKey($preserveKey);
+		} else {
+			$preserveKeySessionKey = $this->getPreserveKeySessionKey('');
+		}
+		try {
+			if (array_key_exists($preserveKeySessionKey, $_SESSION)) {
+				foreach ($_SESSION[$preserveKeySessionKey] as $keyName => $value) {
+					$this->context->{$keyName} = $value;
+				}
+				if ($this->framework->maxNumContextsPreserved === 1) {
+					unset($_SESSION[$preserveKeySessionKey]);
+				}
+			}
+		} catch (\Exception $e) {
+			// session scope not enabled, do nothing
+		}
+	} // restoreFlashContext
+
+	/**
+	 * Save keys to a session
+	 * @param string $keys Comma-delimited list of context keys to store in the session
+	 * @return int
+	 * @return string The key in the session that contains the preserved data
+	 * @throws \Exception
+	 */
+	public function saveFlashContext($keys) {
+		$curPreserveKey = $this->getNextPreserveKeyAndPurgeOld();
+		$preserveKeySessionKey = $this->getPreserveKeySessionKey($curPreserveKey);
+		try {
+			if (!array_key_exists($preserveKeySessionKey, $_SESSION)) {
+				$_SESSION[$preserveKeySessionKey] = array();
+			}
+			if ($keys === 'all') {
+				$keyNames = $this->context->keyNames();
+			} else {
+				$keyNames = explode(',', $keys);
+			}
+			foreach ($keyNames as $keyName) {
+				if ($this->context->exists($keyName)) {
+					$_SESSION[$preserveKeySessionKey][$keyName] = $this->context->$keyName;
+				}
+			}
+		} catch (\Exception $e) {
+			// session scope not enabled, do nothing
+		}
+		return $curPreserveKey;
+	} // saveFlashContext
+
 	/**
 	 * Add the given service to the queue to be handled later
 	 * @param string $action Name of the service
