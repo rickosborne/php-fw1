@@ -868,7 +868,7 @@ DUMPCSSJS;
 			$pathInfo = substr($pathInfo, 1);
 		}
 		$pathInfo = explode('/', $pathInfo);
-		$sesN =count($pathInfo);
+		$sesN = count($pathInfo);
 		for ($sesIx = 0; $sesIx < $sesN; $sesIx++) {
 			if ($sesIx === 0) {
 				$this->context->{$this->framework->action} = $pathInfo[$sesIx];
@@ -880,6 +880,18 @@ DUMPCSSJS;
 				$this->context->{$pathInfo[$sesIx-1]} = $pathInfo[$sesIx];
 			}
 		} // for each ses index
+		if (array_key_exists('CONTENT_TYPE', $_SERVER) && array_key_exists('CONTENT_LENGTH', $_SERVER) && (strncmp($_SERVER['CONTENT_TYPE'], 'application/json', 16) === 0) && (intval($_SERVER['CONTENT_LENGTH'])) < 1000000) {
+			try {
+				$bodyData = json_decode(file_get_contents('php://input'), TRUE);
+				if (is_array($bodyData)) {
+					foreach ($bodyData as $bodyKey => $bodyValue) {
+						$this->context->{$bodyKey} = $bodyValue;
+					}
+				}
+			} catch (\Exception $e) {
+				// no fallback here
+			}
+		}
 		foreach ($_REQUEST as $key => $val) {
 			$this->context->{$key} = $val;
 		}
