@@ -643,7 +643,8 @@ DUMPCSSJS;
 	 * @return string Item name.
 	 */
 	protected function getItem($action) {
-		return array_pop(explode('.', $this->getSectionAndItem($action), 2));
+		$parts = explode('.', $this->getSectionAndItem($action), 2);
+		return array_pop($parts);
 	} // getItem
 	
 	/**
@@ -686,7 +687,8 @@ DUMPCSSJS;
 	 * @return string Section name
 	 */
 	protected function getSection($action) {
-		return array_shift(explode('.', $this->getSectionAndItem($action), 2));
+		$parts = explode('.', $this->getSectionAndItem($action), 2);
+		return array_shift($parts);
 	} // getSection
 	
 	/**
@@ -700,7 +702,8 @@ DUMPCSSJS;
 		}
 		$parts = explode('.', $action);
 		if (count($parts) === 1) {
-			return $this->framework->defaultSection . '.' . $action; 
+			return $action . '.' . $this->framework->defaultItem;
+			// return $this->framework->defaultSection . '.' . $action; 
 		} else if (strlen($parts[0]) === 0) {
 			return $this->framework->defaultSection . $action;
 		}
@@ -758,7 +761,8 @@ DUMPCSSJS;
 		}
 		ob_start();
 		require "$viewPath";
-		return ob_get_clean();
+		$ret = ob_get_clean();
+		return $ret;
 	} // internalView
 
 	/**
